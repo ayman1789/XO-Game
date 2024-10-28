@@ -1,0 +1,235 @@
+import React, { useState, useEffect } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+
+const WinSound = "data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm4G8QQRDiMcCBcH3Cc+CDv/7xA4Tvh9Rz/y8QADBwMWgQAZG/ILNAARQ4GLTcDeIIIhxGOBAuD7hOfBB3/94gcJ3w+o5/5eIAIAAAVwWgQAVQ2ORaIQwEMAJiDg95G4nQL7mQVWI6GwRcfsZAcsKkJvxgxEjzFUgfHoSQ9Qq7KNwqHwuB13MA4a1q/DmBrHgPcmjiGoh//EwC5nGPEmS4RcfkVKOhJf+WOgoxJclFz3kgn//dBA+ya1GhurNn8zb//9NNutNuhz31f////9vt///z+IdAEAAAK4LQIAKobHItEIYCGAExBwe8jcToF9zIKrEdDYIuP2MgOWFSE34wYiR5iqQPj0JIeoVdlG4VD4XA67mAcNa1fhzA1jwHuTRxDUQ//iYBczjHiTJcIuPyKlHQkv/LHQUYkuSi57yQT//uggfZNajQ3Vmz+Zt//+mm3Wm3Q576v////+32///5/EOgAAADVghQAAAAA==";
+
+const Game = () => {
+  const [player1Name, setPlayer1Name] = useState('');
+  const [player2Name, setPlayer2Name] = useState('');
+  const [gameStarted, setGameStarted] = useState(false);
+  const [board, setBoard] = useState(Array(9).fill(null));
+  const [xIsNext, setXIsNext] = useState(true);
+  const [gameHistory, setGameHistory] = useState([]);
+  const [currentWinner, setCurrentWinner] = useState(null);
+  const [winningCombination, setWinningCombination] = useState([]);
+  const [isWinnerAnimating, setIsWinnerAnimating] = useState(false);
+
+  useEffect(() => {
+    let audio;
+    if (isWinnerAnimating) {
+      audio = new Audio(WinSound);
+      audio.play();
+    }
+    return () => {
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    };
+  }, [isWinnerAnimating]);
+
+  const calculateWinner = (squares) => {
+    const lines = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6]
+    ];
+
+    for (let i = 0; i < lines.length; i++) {
+      const [a, b, c] = lines[i];
+      if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+        return { winner: squares[a], line: lines[i] };
+      }
+    }
+    return null;
+  };
+
+  const handleClick = (i) => {
+    if (!gameStarted || board[i] || currentWinner) return;
+    
+    const newBoard = board.slice();
+    newBoard[i] = xIsNext ? 'X' : 'O';
+    setBoard(newBoard);
+    
+    const result = calculateWinner(newBoard);
+    if (result) {
+      const winnerName = result.winner === 'X' ? player1Name : player2Name;
+      setCurrentWinner(winnerName);
+      setWinningCombination(result.line);
+      setIsWinnerAnimating(true);
+      setTimeout(() => setIsWinnerAnimating(false), 2000);
+      
+      setGameHistory([...gameHistory, {
+        winner: winnerName,
+        player1: player1Name,
+        player2: player2Name,
+        date: new Date().toLocaleString()
+      }]);
+    } else if (!newBoard.includes(null)) {
+      setGameHistory([...gameHistory, {
+        winner: 'تعادل',
+        player1: player1Name,
+        player2: player2Name,
+        date: new Date().toLocaleString()
+      }]);
+    }
+    
+    setXIsNext(!xIsNext);
+  };
+
+  const startNewGame = () => {
+    if (!player1Name || !player2Name) {
+      alert('الرجاء إدخال أسماء اللاعبين');
+      return;
+    }
+    setGameStarted(true);
+    setBoard(Array(9).fill(null));
+    setXIsNext(true);
+    setCurrentWinner(null);
+    setWinningCombination([]);
+  };
+
+  const resetAll = () => {
+    setGameStarted(false);
+    setBoard(Array(9).fill(null));
+    setXIsNext(true);
+    setGameHistory([]);
+    setCurrentWinner(null);
+    setWinningCombination([]);
+    setPlayer1Name('');
+    setPlayer2Name('');
+  };
+
+  const getChartData = () => {
+    const player1Wins = gameHistory.filter(game => game.winner === player1Name).length;
+    const player2Wins = gameHistory.filter(game => game.winner === player2Name).length;
+    return [
+      { name: player1Name || 'اللاعب 1', wins: player1Wins },
+      { name: player2Name || 'اللاعب 2', wins: player2Wins }
+    ];
+  };
+
+  const renderSquare = (i) => {
+    const isWinningSquare = winningCombination.includes(i);
+    return (
+      <button
+        className={`w-20 h-20 bg-white rounded-lg shadow-md text-3xl font-bold m-1
+          ${board[i] === 'X' ? 'text-blue-600' : 'text-red-600'}
+          ${isWinningSquare && isWinnerAnimating ? 'animate-pulse bg-yellow-200' : 'hover:bg-gray-100'}
+          transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400`}
+        onClick={() => handleClick(i)}
+      >
+        {board[i]}
+      </button>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6">
+        <h1 className="text-3xl font-bold text-center mb-8 text-gray-800">لعبة XO</h1>
+        
+        {!gameStarted ? (
+          <div className="space-y-4">
+            <div className="flex flex-col space-y-2">
+              <input
+                type="text"
+                placeholder="اسم اللاعب الأول (X)"
+                value={player1Name}
+                onChange={(e) => setPlayer1Name(e.target.value)}
+                className="p-2 border rounded-lg text-right"
+              />
+              <input
+                type="text"
+                placeholder="اسم اللاعب الثاني (O)"
+                value={player2Name}
+                onChange={(e) => setPlayer2Name(e.target.value)}
+                className="p-2 border rounded-lg text-right"
+              />
+              <button
+                onClick={startNewGame}
+                className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                ابدأ اللعبة
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            <div className="text-center mb-4">
+              <p className="text-xl text-gray-700">
+                {currentWinner 
+                  ? `الفائز: ${currentWinner}`
+                  : `دور: ${xIsNext ? player1Name : player2Name} (${xIsNext ? 'X' : 'O'})`}
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2 justify-center max-w-xs mx-auto">
+              {board.map((_, i) => (
+                <div key={i}>{renderSquare(i)}</div>
+              ))}
+            </div>
+
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={startNewGame}
+                className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                لعبة جديدة
+              </button>
+              <button
+                onClick={resetAll}
+                className="bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                مسح كل البيانات
+              </button>
+            </div>
+            
+            {gameHistory.length > 0 && (
+              <div className="mt-8">
+                <h2 className="text-2xl font-bold mb-4 text-center">إحصائيات اللعب</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse mb-8">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        <th className="border p-2">التاريخ</th>
+                        <th className="border p-2">اللاعب الأول</th>
+                        <th className="border p-2">اللاعب الثاني</th>
+                        <th className="border p-2">الفائز</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {gameHistory.map((game, i) => (
+                        <tr key={i}>
+                          <td className="border p-2 text-center">{game.date}</td>
+                          <td className="border p-2 text-center">{game.player1}</td>
+                          <td className="border p-2 text-center">{game.player2}</td>
+                          <td className="border p-2 text-center">{game.winner}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div className="mt-8">
+                  <h3 className="text-xl font-bold mb-4 text-center">الرسم البياني للفائزين</h3>
+                  <div className="flex justify-center">
+                    <BarChart width={300} height={200} data={getChartData()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="wins" fill="#4F46E5" />
+                    </BarChart>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Game;
